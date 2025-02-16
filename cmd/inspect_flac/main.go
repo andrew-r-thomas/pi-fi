@@ -2,13 +2,15 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/mewkiz/flac"
 	"github.com/mewkiz/flac/meta"
 )
 
 func main() {
-	stream, err := flac.ParseFile("../../tracks/peggy/JPEGMAFIA - I LAY DOWN MY LIFE FOR YOU (DIRECTOR'S C - 04 SIN MIEDO.flac")
+	path := os.Args[1]
+	stream, err := flac.ParseFile(path)
 	if err != nil {
 		log.Fatalf("error inspecting file: %v\n", err)
 	}
