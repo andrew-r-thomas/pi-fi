@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -26,7 +27,7 @@ func main() {
 
 	log.Printf("about to create server\n")
 	// create and start main server
-	s, err := pifi.NewServer()
+	s, err := pifi.NewServer(context.Background())
 	if err != nil {
 		log.Fatalf("error creating server: %v\n", err)
 	}
