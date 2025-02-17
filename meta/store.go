@@ -1,8 +1,16 @@
+/*
+
+TODO:
+- think about using prepared statments
+
+*/
+
 package meta
 
 import (
 	"context"
 	"database/sql"
+	"os"
 )
 
 type MetaStore struct {
@@ -11,6 +19,7 @@ type MetaStore struct {
 }
 
 func NewMetaStore(ctx context.Context) (ms MetaStore, err error) {
+	os.Remove("./.db") // for now, just to keep dev easier
 	ms.db, err = sql.Open("sqlite3", "./.db")
 	if err != nil {
 		return
@@ -53,71 +62,65 @@ func (ms *MetaStore) setup() (err error) {
 	return
 }
 
-func (ms *MetaStore) AddTrack(
-	title string,
-	artist string,
-	album string,
-	trackNumber int,
-) (albumId int64, err error) {
+func (ms *MetaStore) AddAlbum(albumMeta *AlbumMeta) (
+	resp AddAlbumResp,
+	err error,
+) {
 	// setup transaction
 	tx, err := ms.db.BeginTx(ms.ctx, nil)
-	if err != nil {
-		return
-	}
 	defer tx.Rollback()
+	if err != nil {
+		return
+	}
 
-	// upsert the artist
-	res, err := tx.ExecContext(ms.ctx, `
-		insert into artists (name)
+	// first we upsert the artist
+	row := tx.QueryRowContext(ms.ctx, `
+		insert into artists(name)
 		values (?)
-		on conflict (name) do nothing
+		on conflict (name) do update set name = name
 		returning id
-	`, artist)
-	if err != nil {
-		return
-	}
-	artistId, err := res.LastInsertId()
+	`, albumMeta.Artist)
+	err = row.Scan(&resp.ArtistId)
 	if err != nil {
 		return
 	}
 
-	// upsert the album
-	res, err = tx.ExecContext(ms.ctx, `
-		insert into albums (title, artist)
+	// then we insert the album, if it exists, we return an error
+	row = tx.QueryRowContext(ms.ctx, `
+		insert into albums(title, artist)
 		values (?, ?)
-		on conflict (title,artist) do nothing
 		returning id
-	`, album, artistId)
-	if err != nil {
-		return
-	}
-	albumId, err = res.LastInsertId()
+	`, albumMeta.Title, resp.ArtistId)
+	err = row.Scan(&resp.AlbumId)
 	if err != nil {
 		return
 	}
 
-	// insert track, take error if unique constraint is violated
-	_, err = tx.ExecContext(ms.ctx, `
-		insert into tracks (title, album, track_number)
+	// then for each track we insert, if exists -> return error
+	stmt, err := tx.PrepareContext(ms.ctx, `
+		insert into tracks(title, track_number, album)
 		values (?, ?, ?)
-	`, title, albumId, trackNumber)
+		returning id
+	`)
 	if err != nil {
 		return
+	}
+	for _, track := range albumMeta.Tracks {
+		row = stmt.QueryRowContext(
+			ms.ctx,
+			track.Title,
+			track.TrackNumber,
+			resp.AlbumId,
+		)
+		var trackId int64
+		err = row.Scan(&trackId)
+		if err != nil {
+			return
+		}
+		resp.TrackIds = append(resp.TrackIds, trackId)
 	}
 
 	// commit transaction and return
 	err = tx.Commit()
 	return
-}
-
-func (ms *MetaStore) GetAlbum(id int) (Album, error) {
-	var album Album
-
-	row := ms.db.QueryRow("select * from albums where id = ?", id)
-	err := row.Scan(&album.Id, &album.Title, &album.Artist)
-	if err != nil {
-		return album, err
-	}
-
-	return album, nil
 }
