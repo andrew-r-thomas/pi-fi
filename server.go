@@ -52,6 +52,7 @@ func NewServer(ctx context.Context) (s Server, err error) {
 	// setup http handlers
 	http.HandleFunc("/upload-track", s.uploadTrack)
 	http.HandleFunc("/album-meta", s.albumMeta)
+	http.HandleFunc("/get-track", s.getTrack)
 
 	return
 }
@@ -83,4 +84,20 @@ func (s *Server) albumMeta(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(&addAlbumResp)
+}
+
+// first we'll just get the whole file downloaded and playing
+func (s *Server) getTrack(w http.ResponseWriter, r *http.Request) {
+	vals := r.URL.Query()
+	id := vals.Get("id")
+	log.Printf("id: %s\n", id)
+	f, err := os.Open(fmt.Sprintf("tracks/%s.flac", id))
+	if err != nil {
+		log.Fatalf("error opening file: %v\n", err)
+	}
+
+	_, err = io.Copy(w, f)
+	if err != nil {
+		log.Fatalf("error copying: %v\n", err)
+	}
 }
