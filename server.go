@@ -13,6 +13,7 @@ package pifi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -31,13 +32,11 @@ type Server struct {
 
 func NewServer(ctx context.Context) (s Server, err error) {
 	// prep tracks file, just for dev for now
-	err = os.RemoveAll("tracks")
-	if err != nil {
-		return
-	}
 	err = os.Mkdir("tracks", 0755)
 	if err != nil {
-		return
+		if !errors.Is(err, os.ErrExist) {
+			return
+		}
 	}
 
 	// context
@@ -53,6 +52,7 @@ func NewServer(ctx context.Context) (s Server, err error) {
 	http.HandleFunc("/upload-track", s.uploadTrack)
 	http.HandleFunc("/album-meta", s.albumMeta)
 	http.HandleFunc("/get-track", s.getTrack)
+	http.HandleFunc("/get-library", s.getLibrary)
 
 	return
 }
@@ -100,4 +100,12 @@ func (s *Server) getTrack(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("error copying: %v\n", err)
 	}
+}
+
+func (s *Server) getLibrary(w http.ResponseWriter, r *http.Request) {
+	resp, err := s.ms.GetLibrary()
+	if err != nil {
+		log.Fatalf("error getting library: %v\n", err)
+	}
+	json.NewEncoder(w).Encode(resp)
 }
