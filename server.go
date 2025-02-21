@@ -53,6 +53,7 @@ func NewServer(ctx context.Context) (s Server, err error) {
 	http.HandleFunc("/album-meta", s.albumMeta)
 	http.HandleFunc("/get-track", s.getTrack)
 	http.HandleFunc("/get-library", s.getLibrary)
+	http.HandleFunc("/get-image", s.getImage)
 
 	return
 }
@@ -109,4 +110,10 @@ func (s *Server) getLibrary(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("error getting library: %v\n", err)
 	}
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (s *Server) getImage(w http.ResponseWriter, r *http.Request) {
+	vals := r.URL.Query()
+	id := vals.Get("id")
+	http.ServeFile(w, r, fmt.Sprintf("images/%s.jpg", id))
 }
