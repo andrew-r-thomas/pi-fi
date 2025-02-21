@@ -103,6 +103,7 @@ func (s *Server) getTrack(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getLibrary(w http.ResponseWriter, r *http.Request) {
+	log.Printf("got get library request\n")
 	resp, err := s.ms.GetLibrary()
 	if err != nil {
 		log.Fatalf("error getting library: %v\n", err)
